@@ -1,0 +1,6 @@
+target
+.*
+!.gitignore
+!.cargo
+*.md
+!README.md

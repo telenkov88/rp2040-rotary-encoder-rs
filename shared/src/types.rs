@@ -1,22 +1,21 @@
 // shared/src/types.rs
-use serde::{Deserialize, Serialize};
 
 pub const MAX_ENCODERS: usize = 8;
 
-pub const BUFFER_SIZE: usize = 64;
+pub const BUFFER_SIZE: usize = 128;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SensorDataPacket {
     pub seq: u32,
     pub encoders: [i32; MAX_ENCODERS],
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ResetCommand {
     pub encoder_id: u8,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Packet {
     SensorData(SensorDataPacket),
     Reset(ResetCommand),

@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use defmt::{debug, error, info};
+use defmt::info;
 use embassy_executor::{Executor, Spawner};
 use embassy_rp::gpio::{Input, Pull};
 use embassy_rp::multicore::{spawn_core1, Stack};
@@ -15,7 +15,7 @@ use embassy_rp::uart::{BufferedInterruptHandler, BufferedUart, BufferedUartRx, C
 use embedded_io_async::{Read, Write};
 
 use encoder_protocol::{
-    deserialize_with_crc, serialize_packet, Packet, SensorDataPacket, BUFFER_SIZE, MAX_ENCODERS,
+    serialize_packet, Packet, SensorDataPacket, BUFFER_SIZE, MAX_ENCODERS,
 };
 use {defmt_rtt as _, panic_probe as _};
 
@@ -92,7 +92,7 @@ async fn main(spawner: Spawner) {
     let mut sequence = 0u32;
 
     loop {
-        embassy_time::Timer::after_millis(1000).await;
+        embassy_time::Timer::after_millis(10).await; // 100Hz
 
         let encoder_counts = ENCODER_COUNTS.each_ref().map(|c| c.load(Ordering::SeqCst));
         let sensor_data_packet = SensorDataPacket {
@@ -102,32 +102,11 @@ async fn main(spawner: Spawner) {
         let packet = Packet::SensorData(sensor_data_packet);
         let buf = serialize_packet(&packet);
 
-        debug!("TX Seq: {:?} Counts: {:?}", sequence, encoder_counts);
-        debug!("TX Buffer {:?}", buf);
-
-        #[cfg(debug_assertions)]
-        {
-            if let Some(packet) = deserialize_with_crc(&buf) {
-                match packet {
-                    Packet::SensorData(deserialized_packet) => {
-                        debug!("✓ Deserialized data successfully");
-                        debug!(
-                            "  Original  seq: {}, encoders: {:?}",
-                            sequence, encoder_counts
-                        );
-                        debug!(
-                            "  Parsed    seq: {}, encoders: {:?}",
-                            deserialized_packet.seq, deserialized_packet.encoders
-                        );
-                    }
-                    _ => error!("Failed to deserialize"),
-                }
-            } else {
-                error!("CRC error or invalid packet")
-            }
+        if sequence % 10 == 0 { // 10Hz in console
+            info!("TX Seq: {:?} Counts: {:?}", sequence, encoder_counts);
         }
 
-        tx.write_all(&buf).await.unwrap();
+        tx.write_all(buf.as_bytes()).await.unwrap();
         sequence += 1;
     }
 }
@@ -143,19 +122,9 @@ async fn core1_task(encoders: Encoders) {
             match en.update() {
                 Direction::Clockwise => {
                     ENCODER_COUNTS[i].fetch_add(1, Ordering::SeqCst);
-                    debug!(
-                        "Encoder{} Count: {}",
-                        i,
-                        ENCODER_COUNTS[i].load(Ordering::SeqCst)
-                    );
                 }
                 Direction::Anticlockwise => {
                     ENCODER_COUNTS[i].fetch_sub(1, Ordering::SeqCst);
-                    debug!(
-                        "Encoder{} Count: {}",
-                        i,
-                        ENCODER_COUNTS[i].load(Ordering::SeqCst)
-                    );
                 }
                 Direction::None => {}
             }

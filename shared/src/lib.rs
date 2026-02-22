@@ -16,7 +16,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_packet_roundtrip() {
+    fn test_packet_serialization() {
         let original = SensorDataPacket {
             seq: 42,
             encoders: [1, -2, 3, -4, 5, -6, 7, -8],
@@ -24,14 +24,6 @@ mod tests {
         let packet = Packet::SensorData(original);
 
         let serialized = serialize_packet(&packet);
-        let deserialized = deserialize_with_crc(&serialized).unwrap();
-
-        match deserialized {
-            Packet::SensorData(data) => {
-                assert_eq!(data.seq, 42);
-                assert_eq!(data.encoders, [1, -2, 3, -4, 5, -6, 7, -8]);
-            }
-            _ => panic!("Wrong packet type"),
-        }
+        assert_eq!(serialized.as_str(), "42:1,-2,3,-4,5,-6,7,-8\n");
     }
 }

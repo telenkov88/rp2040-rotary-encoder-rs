@@ -1,5 +1,5 @@
 [workspace]
-members = ["shared"]
+members = ["encoder-client","shared"]
 exclude = ["encoder-firmware"]
 resolver = "2"
 

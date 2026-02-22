@@ -42,6 +42,9 @@ async fn main(spawner: Spawner) {
     let tx_buf = &mut TX_BUF.init([0; BUFFER_SIZE])[..];
     static RX_BUF: StaticCell<[u8; BUFFER_SIZE]> = StaticCell::new();
     let rx_buf = &mut RX_BUF.init([0; BUFFER_SIZE])[..];
+    let mut config = Config::default();
+    config.baudrate = 115_200;
+    
     let uart = BufferedUart::new(
         uart,
         tx_pin,
@@ -49,7 +52,7 @@ async fn main(spawner: Spawner) {
         Irqs,
         tx_buf,
         rx_buf,
-        Config::default(),
+        config,
     );
     let (mut tx, rx) = uart.split();
 
@@ -106,7 +109,12 @@ async fn main(spawner: Spawner) {
             info!("TX Seq: {:?} Counts: {:?}", sequence, encoder_counts);
         }
 
-        tx.write_all(buf.as_bytes()).await.unwrap();
+        if let Err(_e) = tx.write_all(buf.as_bytes()).await {
+            defmt::error!("UART write failed");
+        }
+        if let Err(_e) = tx.flush().await {
+            defmt::error!("UART flush failed");
+        }
         sequence += 1;
     }
 }
@@ -137,7 +145,11 @@ async fn reader(mut rx: BufferedUartRx) {
     info!("Reading...");
     loop {
         let mut buf = [0; 1];
-        rx.read_exact(&mut buf).await.unwrap();
+        if let Err(_e) = rx.read_exact(&mut buf).await {
+            defmt::error!("UART read failed");
+            embassy_time::Timer::after_millis(10).await;
+            continue;
+        }
         info!("RX {:?}", buf);
     }
 }

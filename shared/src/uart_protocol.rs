@@ -1,14 +1,18 @@
-use crate::types::{Packet, BUFFER_SIZE};
+use crate::types::{BUFFER_SIZE, Packet};
 use core::fmt::Write;
 use heapless::String;
 
+pub fn compute_checksum(payload: &str) -> u8 {
+    payload.bytes().fold(0, |acc, b| acc ^ b)
+}
+
 pub fn serialize_packet(packet: &Packet) -> String<BUFFER_SIZE> {
-    let mut buf = String::new();
+    let mut payload: String<BUFFER_SIZE> = String::new();
     match packet {
         Packet::SensorData(data) => {
             let _ = write!(
-                &mut buf,
-                "{}:{},{},{},{},{},{},{},{}\n",
+                &mut payload,
+                "{}:{},{},{},{},{},{},{},{}",
                 data.seq,
                 data.encoders[0],
                 data.encoders[1],
@@ -21,15 +25,20 @@ pub fn serialize_packet(packet: &Packet) -> String<BUFFER_SIZE> {
             );
         }
         Packet::Reset(cmd) => {
-            let _ = write!(&mut buf, "RST:{}\n", cmd.encoder_id);
+            let _ = write!(&mut payload, "RST:{}", cmd.encoder_id);
         }
         Packet::Ping { timestamp } => {
-            let _ = write!(&mut buf, "PING:{}\n", timestamp);
+            let _ = write!(&mut payload, "PING:{}", timestamp);
         }
         Packet::Pong { timestamp } => {
-            let _ = write!(&mut buf, "PONG:{}\n", timestamp);
+            let _ = write!(&mut payload, "PONG:{}", timestamp);
         }
     }
+
+    let checksum = compute_checksum(&payload);
+
+    let mut buf: String<BUFFER_SIZE> = String::new();
+    let _ = write!(&mut buf, "${}*{:02X}\n", payload, checksum);
     buf
 }
 
@@ -49,12 +58,18 @@ mod tests {
     use crate::types::*;
 
     #[test]
+    fn test_compute_checksum() {
+        assert_eq!(compute_checksum("123:1,-2,3,-4,5,-6,7,-8"), 0x2E);
+        assert_eq!(compute_checksum("RST:3"), 0x5C);
+    }
+
+    #[test]
     fn test_serialize_sensor_data() {
         let original = SensorDataPacket::new(123, [1, -2, 3, -4, 5, -6, 7, -8]);
         let packet = Packet::SensorData(original);
 
         let serialized = serialize_packet(&packet);
-        assert_eq!(serialized.as_str(), "123:1,-2,3,-4,5,-6,7,-8\n");
+        assert_eq!(serialized.as_str(), "$123:1,-2,3,-4,5,-6,7,-8*2E\n");
     }
 
     #[test]
@@ -62,6 +77,6 @@ mod tests {
         let packet = Packet::Reset(ResetCommand::single(3));
 
         let serialized = serialize_packet(&packet);
-        assert_eq!(serialized.as_str(), "RST:3\n");
+        assert_eq!(serialized.as_str(), "$RST:3*5C\n");
     }
 }

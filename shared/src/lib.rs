@@ -24,6 +24,6 @@ mod tests {
         let packet = Packet::SensorData(original);
 
         let serialized = serialize_packet(&packet);
-        assert_eq!(serialized.as_str(), "42:1,-2,3,-4,5,-6,7,-8\n");
+        assert_eq!(serialized.as_str(), "$42:1,-2,3,-4,5,-6,7,-8*18\n");
     }
 }

@@ -1,3 +1,7 @@
+//! Client library for reading the RP2040 rotary encoder states over UART.
+//!
+//! Provides a real-time, thread-safe view into the most recent count of all 8 axes.
+
 use std::io::{BufRead, BufReader};
 use std::sync::{Arc, RwLock};
 use std::thread::{self, JoinHandle};
@@ -27,7 +31,6 @@ pub struct EncoderClient {
 impl EncoderClient {
     /// Starts retrieving encoder positions from the target serial device at 115,200 baud rate.
     pub fn spawn(port_name: &str) -> std::result::Result<Self, EncoderError> {
-        // Open the serial port connection to the RP2040 board.
         let mut port = serialport::new(port_name, 115_200)
             .timeout(Duration::from_millis(100))
             .open()?;
@@ -48,7 +51,6 @@ impl EncoderClient {
 
             loop {
                 line.clear();
-                // Read a complete text line up to \n, e.g., "120:1,-2,3,4,5,6,7,-8\n"
                 match reader.read_line(&mut line) {
                     Ok(bytes_read) if bytes_read > 0 => {
                         let trimmed = line.trim_end();
@@ -72,7 +74,6 @@ impl EncoderClient {
                             eprintln!("Encoder client reader error: {}", e);
                             break;
                         }
-                        // Ignored timeouts, just loops again.
                     }
                 }
             }
@@ -106,15 +107,12 @@ impl EncoderClient {
 
 /// Helper method to cleanly extract the string format "$Seq:E0,E1,E2,E3,E4,E5,E6,E7*XX"
 fn parse_line(line: &str) -> Option<(u32, [i32; 8])> {
-    // 1. Find start marker
     let start_idx = line.find('$')?;
     let slice = &line[start_idx + 1..];
 
-    // 2. Find checksum separator
     let star_idx = slice.find('*')?;
     let payload = &slice[..star_idx];
 
-    // 3. Extract and verify checksum
     let checksum_hex = slice.get(star_idx + 1..star_idx + 3)?;
     let expected_checksum = u8::from_str_radix(checksum_hex, 16).ok()?;
 
@@ -123,7 +121,6 @@ fn parse_line(line: &str) -> Option<(u32, [i32; 8])> {
         return None;
     }
 
-    // 4. Parse payload
     let mut parts = payload.split(':');
     let seq_str = parts.next()?;
     let counts_str = parts.next()?;

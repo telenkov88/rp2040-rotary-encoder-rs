@@ -1,5 +1,8 @@
-#![cfg_attr(not(feature = "std"), no_std)]
+//! Shared protocol definitions for the RP2040 rotary encoder project.
+//!
+//! Contains data structures and serialization logic used by both the firmware and host client.
 
+#![cfg_attr(not(feature = "std"), no_std)]
 pub mod types;
 pub mod uart_protocol;
 

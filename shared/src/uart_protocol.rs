@@ -2,10 +2,12 @@ use crate::types::{BUFFER_SIZE, Packet};
 use core::fmt::Write;
 use heapless::String;
 
+/// Computes an XOR checksum of the ASCII payload string.
 pub fn compute_checksum(payload: &str) -> u8 {
     payload.bytes().fold(0, |acc, b| acc ^ b)
 }
 
+/// Serializes a Packet enum into a heapless NMEA-framed string.
 pub fn serialize_packet(packet: &Packet) -> String<BUFFER_SIZE> {
     let mut payload: String<BUFFER_SIZE> = String::new();
     match packet {
@@ -42,11 +44,13 @@ pub fn serialize_packet(packet: &Packet) -> String<BUFFER_SIZE> {
     buf
 }
 
+/// Utility to quickly mint a new SensorData packet.
 pub fn create_sensor_packet(seq: u32, encoders: [i32; 8]) -> Packet {
     use crate::types::SensorDataPacket;
     Packet::SensorData(SensorDataPacket::new(seq, encoders))
 }
 
+/// Utility to quickly mint a new ResetCommand packet.
 pub fn create_reset_packet(encoder_id: u8) -> Packet {
     use crate::types::ResetCommand;
     Packet::Reset(ResetCommand { encoder_id })

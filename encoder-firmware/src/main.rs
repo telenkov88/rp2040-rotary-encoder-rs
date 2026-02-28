@@ -1,3 +1,5 @@
+//! RP2040 firmware that continuously tracks 8 rotary encoders and streams their accumulated values over UART.
+
 #![no_std]
 #![no_main]
 
@@ -39,7 +41,6 @@ async fn main(spawner: Spawner) {
 
     let mut pwm_config: PwmConfig = Default::default();
     pwm_config.top = 20000;
-    // Dim the LED using PWM (1/40 proportion brightness)
     let max_brightness = pwm_config.top / 40;
     pwm_config.compare_b = 0;
     let mut led_pwm = Pwm::new_output_b(p.PWM_SLICE4, p.PIN_25, pwm_config.clone());
@@ -105,7 +106,6 @@ async fn main(spawner: Spawner) {
     loop {
         embassy_time::Timer::after_millis(10).await;
 
-        // Blink LED with 0.5Hz frequency (2 seconds period)
         let cycle_tick = sequence % 200;
         if cycle_tick < 100 {
             pwm_config.compare_b = max_brightness;
@@ -136,6 +136,7 @@ async fn main(spawner: Spawner) {
     }
 }
 
+/// Continuously samples all encoder inputs on Core 1 for atomic accumulation.
 #[embassy_executor::task]
 async fn core1_task(encoders: Encoders) {
     info!("Encoder samling started.");
@@ -157,6 +158,7 @@ async fn core1_task(encoders: Encoders) {
     }
 }
 
+/// Reads data from the UART, currently only used to drain the receive buffer to prevent overflow.
 #[embassy_executor::task]
 async fn reader(mut rx: BufferedUartRx) {
     info!("Reading...");

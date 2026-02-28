@@ -141,7 +141,22 @@ async fn main(spawner: Spawner) {
 async fn core1_task(encoders: Encoders) {
     info!("Encoder samling started.");
 
+    // Allow internal pull-ups to stabilize and pins to reach their default state
+    // before taking the initial reading. This prevents spurious initial counts.
+    embassy_time::Timer::after_millis(10).await;
+
     let mut encoders = encoders.encoders.map(|e| e.into_standard_mode());
+
+    // The rotary-encoder-embedded crate's StandardMode initializes its internal
+    // history buffer asymmetrically ([0xFF, 2]). If the starting pin state is (Low, Low),
+    // the very first update() call interprets the history transition as an Anticlockwise movement.
+    // To 'prime' the history buffer, we perform a few dummy reads and discard their results 
+    // before we start accumulating real counts.
+    for _ in 0..4 {
+        for en in encoders.iter_mut() {
+            en.update();
+        }
+    }
 
     loop {
         for (i, en) in encoders.iter_mut().enumerate() {

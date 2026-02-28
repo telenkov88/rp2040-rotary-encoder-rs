@@ -3,6 +3,16 @@ name = "encoder-client"
 version = "0.1.0"
 edition = "2024"
 
+[lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+missing_copy_implementations = "warn"
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+unused_import_braces = "warn"
+unused_qualifications = "warn"
+
+
 [dependencies]
 serialport = "4.3"
 thiserror = "2.0"

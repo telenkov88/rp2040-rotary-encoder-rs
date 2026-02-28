@@ -10,6 +10,16 @@ test = false
 doctest = false
 bench = false
 
+[lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+missing_copy_implementations = "warn"
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+unused_import_braces = "warn"
+unused_qualifications = "warn"
+
+
 [dependencies]
 embassy-executor = { version = "0.9.1", features = [
     "arch-cortex-m",

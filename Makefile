@@ -1,5 +1,15 @@
 .PHONY: build build-client build-firmware build-firmware-release build-uf2 flash flash-release run install-tools test test-client test-hardware clean
 
+clean:
+	cargo clean --workspace
+	cd encoder-firmware && cargo clean
+
+lint:
+	cargo clippy --workspace
+
+fmt:
+	cargo fmt
+
 build:
 	cargo build --workspace
 
@@ -13,17 +23,14 @@ build-firmware-release:
 	cd encoder-firmware && cargo build --release
 
 build-uf2: build-firmware-release
-	# Converts the compiled ELF to UF2 format for simple drag-and-drop programming on the RP2040 boot disk.
 	cd encoder-firmware && elf2uf2-rs target/thumbv6m-none-eabi/release/encoder-firmware target/thumbv6m-none-eabi/release/encoder-firmware.uf2
 	@echo "\nUF2 built successfully at: encoder-firmware/target/thumbv6m-none-eabi/release/encoder-firmware.uf2"
 
 flash: build-firmware
-	# We use probe-rs to flash the ELF without attaching a logger/debugger.
 	cd encoder-firmware && probe-rs download --chip RP2040 --speed 10000 target/thumbv6m-none-eabi/debug/encoder-firmware
 	probe-rs reset --chip RP2040
 
 flash-release: build-firmware-release
-	# We use probe-rs to flash the release ELF without attaching a logger/debugger.
 	cd encoder-firmware && probe-rs download --chip RP2040 --speed 10000 target/thumbv6m-none-eabi/release/encoder-firmware
 	probe-rs reset --chip RP2040
 
@@ -36,16 +43,9 @@ install-tools:
 test:
 	cargo test --workspace
 
-lint:
-	cargo clippy --workspace
 
 test-client:
 	cd encoder-client && cargo test
 
 test-hardware:
 	cd encoder-client && cargo test -- --ignored --nocapture
-
-
-clean:
-	cargo clean --workspace
-	cd encoder-firmware && cargo clean

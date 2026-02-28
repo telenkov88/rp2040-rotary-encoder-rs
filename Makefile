@@ -1,3 +1,5 @@
+.PHONY: build build-client build-firmware build-firmware-release build-uf2 flash flash-release run install-tools test test-client test-hardware clean
+
 build:
 	cargo build --workspace
 
@@ -18,14 +20,10 @@ build-uf2: build-firmware-release
 flash: build-firmware
 	# We use probe-rs to flash the ELF without attaching a logger/debugger.
 	cd encoder-firmware && probe-rs download --chip RP2040 --speed 10000 target/thumbv6m-none-eabi/debug/encoder-firmware
-	# Reset the chip to let it boot and run normally.
-	cd encoder-firmware && probe-rs reset --chip RP2040
 
 flash-release: build-firmware-release
 	# We use probe-rs to flash the release ELF without attaching a logger/debugger.
 	cd encoder-firmware && probe-rs download --chip RP2040 --speed 10000 target/thumbv6m-none-eabi/release/encoder-firmware
-	# Reset the chip to let it boot and run normally.
-	cd encoder-firmware && probe-rs reset --chip RP2040
 
 run:
 	cd encoder-firmware && cargo run
@@ -41,3 +39,8 @@ test-client:
 
 test-hardware:
 	cd encoder-client && cargo test -- --ignored --nocapture
+
+
+clean:
+	cargo clean --workspace
+	cd encoder-firmware && cargo clean

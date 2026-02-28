@@ -49,3 +49,10 @@ test-client:
 
 test-hardware:
 	cd encoder-client && cargo test -- --ignored --nocapture
+
+
+client-async:
+	cargo run --example async_client
+
+client-sync:
+	cargo run --example sync_client

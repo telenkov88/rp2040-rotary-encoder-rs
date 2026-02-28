@@ -7,7 +7,7 @@ pub const MAX_ENCODERS: usize = 8;
 pub const BUFFER_SIZE: usize = 128;
 
 /// Represents an active reading of all encoder values.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SensorDataPacket {
     /// A monotonically increasing sequence number for this packet.
     pub seq: u32,
@@ -16,14 +16,14 @@ pub struct SensorDataPacket {
 }
 
 /// Command to reset zero or more encoders on the device.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ResetCommand {
     /// The target encoder ID (0-7), or 255 to mean "all".
     pub encoder_id: u8,
 }
 
 /// The top-level protocol message.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Packet {
     /// Standard periodic broadcasting of sensor counts.
     SensorData(SensorDataPacket),

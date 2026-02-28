@@ -5,7 +5,7 @@ clean:
 	cd encoder-firmware && cargo clean
 
 lint:
-	cargo clippy --workspace
+	cargo clippy --workspace -- -D warnings
 
 fmt:
 	cargo fmt

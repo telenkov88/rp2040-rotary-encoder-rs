@@ -29,20 +29,3 @@ jobs:
 
       - name: Test Hardware
         run: make test-hardware
-
-  build-uf2:
-    runs-on: self-hosted
-    needs: hardware-test
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Build UF2 Firmware
-        run: make build-uf2
-
-      - name: Upload UF2 Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: encoder-firmware-uf2
-          path: encoder-firmware/target/thumbv6m-none-eabi/release/encoder-firmware.uf2

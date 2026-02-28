@@ -30,7 +30,9 @@ The RP2040 firmware expects the following pin connections:
 
 ## Using `encoder-client`
 
-To parse variables locally on a linux/macOS host with a serial connection, add `encoder-client` to your Cargo dependencies and initialize the daemon:
+To parse variables locally on a linux/macOS host with a serial connection, add `encoder-client` to your Cargo dependencies. The library provides both synchronous and asynchronous clients.
+
+### Synchronous Client
 
 ```rust
 use encoder_client::EncoderClient;
@@ -42,6 +44,38 @@ let client = EncoderClient::spawn("/dev/cu.usbmodem1101")
 // Trivial real-time polling from application logic loops
 let sensor_counts: [i32; 8] = client.get_counts();
 println!("Latest Encoders: {:?}", sensor_counts);
+```
+
+### Asynchronous Client
+
+```rust
+use encoder_client::AsyncEncoderClient;
+use std::time::Duration;
+use tokio::time;
+
+#[tokio::main]
+async fn main() {
+    // Spawns a tokio task for background serial reading
+    let client = AsyncEncoderClient::spawn("/dev/cu.usbmodem1101")
+        .expect("Failed to initialize async UART client");
+
+    let mut interval = time::interval(Duration::from_millis(100));
+    loop {
+        interval.tick().await;
+        let sensor_counts = client.get_counts();
+        println!("Latest Encoders: {:?}", sensor_counts);
+    }
+}
+```
+
+### Running Examples
+
+You can run the fully functional examples for `async` and `sync` directly mapping to the hardware (ensure `PICO_ENCODER_UART` is set in your `.env` file first):
+
+```bash
+make client-async
+# or
+make client-sync
 ```
 
 ## Hardware Testing

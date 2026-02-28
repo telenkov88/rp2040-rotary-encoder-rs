@@ -2,12 +2,16 @@
 //!
 //! Provides a real-time, thread-safe view into the most recent count of all 8 axes.
 
+use serialport::SerialPort;
 use std::io::{BufRead, BufReader};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 use thiserror::Error;
+use tokio::io::{AsyncBufReadExt, BufReader as AsyncBufReader};
+use tokio::task::JoinHandle as AsyncJoinHandle;
+use tokio_serial::SerialPortBuilderExt;
 
 #[derive(Error, Debug)]
 pub enum EncoderError {
@@ -164,6 +168,120 @@ fn parse_line(line: &str) -> Option<(u32, [i32; 8])> {
     }
 
     Some((seq, encoders))
+}
+
+/// A client for continuous background reading of the RP2040 8-axis encoder states asynchronously.
+#[derive(Debug)]
+pub struct AsyncEncoderClient {
+    /// The current encoder counts across all eight axes.
+    counts: Arc<RwLock<[i32; 8]>>,
+    /// The current sequence number received from the device counter.
+    sequence: Arc<RwLock<u32>>,
+    exit_flag: Arc<AtomicBool>,
+    worker_handle: Option<AsyncJoinHandle<()>>,
+}
+
+impl Drop for AsyncEncoderClient {
+    fn drop(&mut self) {
+        self.exit_flag.store(true, Ordering::SeqCst);
+        if let Some(handle) = self.worker_handle.take() {
+            handle.abort();
+        }
+    }
+}
+
+impl AsyncEncoderClient {
+    /// Starts retrieving encoder positions from the target serial device asynchronously.
+    pub fn spawn(port_name: &str) -> Result<Self, EncoderError> {
+        let mut port = tokio_serial::new(port_name, 115_200)
+            .timeout(Duration::from_millis(100))
+            .open_native_async()
+            .or_else(|e| {
+                if cfg!(target_os = "macos") {
+                    // Fallback to baud rate 0 on macOS for virtual ports (e.g. socat pseudo-terminals)
+                    tokio_serial::new(port_name, 0)
+                        .timeout(Duration::from_millis(100))
+                        .open_native_async()
+                } else {
+                    Err(e)
+                }
+            })?;
+
+        // For USB CDC ACM devices (like the RP2040), DTR must be asserted for the host
+        // to receive any data stream.
+        port.write_data_terminal_ready(true).ok();
+
+        let counts = Arc::new(RwLock::new([0; 8]));
+        let sequence = Arc::new(RwLock::new(0));
+        let exit_flag = Arc::new(AtomicBool::new(false));
+
+        let counts_clone = Arc::clone(&counts);
+        let sequence_clone = Arc::clone(&sequence);
+        let exit_flag_clone = Arc::clone(&exit_flag);
+
+        let worker_handle = tokio::spawn(async move {
+            let mut reader = AsyncBufReader::new(port);
+            let mut line = String::new();
+
+            loop {
+                if exit_flag_clone.load(Ordering::SeqCst) {
+                    break;
+                }
+
+                line.clear();
+                match reader.read_line(&mut line).await {
+                    Ok(bytes_read) if bytes_read > 0 => {
+                        let trimmed = line.trim_end();
+                        if let Some((seq, parsed_encoders)) = parse_line(trimmed) {
+                            if let Ok(mut c) = counts_clone.write() {
+                                *c = parsed_encoders;
+                            }
+                            if let Ok(mut s) = sequence_clone.write() {
+                                *s = seq;
+                            }
+                        } else {
+                            eprintln!("Failed to parse UART text: '{}'", trimmed);
+                        }
+                    }
+                    Ok(_) => {
+                        eprintln!("UART EOF / disconnected.");
+                        break;
+                    }
+                    Err(e) => {
+                        if e.kind() != std::io::ErrorKind::TimedOut {
+                            eprintln!("AsyncEncoder client reader error: {}", e);
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+
+        Ok(Self {
+            counts,
+            sequence,
+            exit_flag,
+            worker_handle: Some(worker_handle),
+        })
+    }
+
+    /// Gets a thread-safe atomic view of the latest polled 8 encoder orientations.
+    pub fn get_counts(&self) -> [i32; 8] {
+        if let Ok(c) = self.counts.read() {
+            *c
+        } else {
+            [0; 8]
+        }
+    }
+
+    /// Gets a thread-safe atomic view of the latest emitted packet sequence number.
+    pub fn get_sequence(&self) -> u32 {
+        if let Ok(s) = self.sequence.read() {
+            *s
+        } else {
+            0
+        }
+    }
 }
 
 #[cfg(test)]

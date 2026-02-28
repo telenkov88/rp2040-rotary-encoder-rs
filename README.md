@@ -43,3 +43,18 @@ let client = EncoderClient::spawn("/dev/cu.usbmodem1101")
 let sensor_counts: [i32; 8] = client.get_counts();
 println!("Latest Encoders: {:?}", sensor_counts);
 ```
+
+## Hardware Testing
+
+To run the hardware connection tests on the client host, you must provide the target UART path via an environment variable. You can specify it manually or simply create a `.env` file at the root of the project:
+
+```bash
+# Example .env file content
+PICO_ENCODER_UART=/dev/ttyEncoder0
+```
+
+Then run the tests:
+
+```bash
+make test-hardware
+```

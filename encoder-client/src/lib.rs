@@ -33,7 +33,17 @@ impl EncoderClient {
     pub fn spawn(port_name: &str) -> std::result::Result<Self, EncoderError> {
         let mut port = serialport::new(port_name, 115_200)
             .timeout(Duration::from_millis(100))
-            .open()?;
+            .open()
+            .or_else(|e| {
+                if cfg!(target_os = "macos") {
+                    // Fallback to baud rate 0 on macOS for virtual ports (e.g. socat pseudo-terminals)
+                    serialport::new(port_name, 0)
+                        .timeout(Duration::from_millis(100))
+                        .open()
+                } else {
+                    Err(e)
+                }
+            })?;
 
         // For USB CDC ACM devices (like the RP2040), DTR must be asserted for the host
         // to receive any data stream.

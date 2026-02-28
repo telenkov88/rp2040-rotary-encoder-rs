@@ -1,26 +1,22 @@
 use encoder_client::EncoderClient;
+use std::env;
 use std::thread;
 use std::time::Duration;
-
-// We use the same known USB port from the original firmwares UART e2e test target.
-// It may vary slightly on host machines, but this is the standard macOS MKS servo dummy target.
-const TARGET_PORT: &str = "/tmp/ttyEncoder0";
 
 #[test]
 #[ignore = "Requires RP2040 hardware plugged in to the host machine"]
 fn test_hardware_connection_and_sampling() {
-    let client_result = EncoderClient::spawn(TARGET_PORT);
+    // Load environment variables from .env file
+    dotenvy::dotenv().ok();
 
-    // Check if the port even exists/opens.
-    if client_result.is_err() {
-        println!(
-            "Skipping hardware test, port {} not found or accessible.",
-            TARGET_PORT
-        );
-        return;
-    }
+    let target_port = env::var("PICO_ENCODER_UART").expect(
+        "PICO_ENCODER_UART environment variable must be set (e.g. in .env file) to run this test.",
+    );
 
-    let client = client_result.unwrap();
+    let client_result = EncoderClient::spawn(&target_port);
+
+    // Check if the port even exists/opens. The test should FAIL if it doesn't open.
+    let client = client_result.expect(&format!("Failed to open serial port: {}", target_port));
 
     // Sleep for 1.5 seconds to let the RP2040 emit data
     // and the thread reader to sample and parse the highest sequence.

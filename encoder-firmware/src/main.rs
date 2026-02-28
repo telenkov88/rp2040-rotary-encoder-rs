@@ -26,7 +26,7 @@ bind_interrupts!(struct Irqs {
     UART0_IRQ => BufferedInterruptHandler<UART0>;
 });
 
-static mut CORE1_STACK: Stack<4096> = Stack::new();
+static CORE1_STACK: StaticCell<Stack<4096>> = StaticCell::new();
 static EXECUTOR1: StaticCell<Executor> = StaticCell::new();
 
 struct Encoders {
@@ -94,7 +94,7 @@ async fn main(spawner: Spawner) {
 
     spawn_core1(
         p.CORE1,
-        unsafe { &mut *core::ptr::addr_of_mut!(CORE1_STACK) },
+        CORE1_STACK.init(Stack::new()),
         move || {
             let executor1 = EXECUTOR1.init(Executor::new());
             executor1.run(|spawner| spawner.must_spawn(core1_task(encoders)));

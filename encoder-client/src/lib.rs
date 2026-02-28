@@ -19,6 +19,7 @@ pub enum EncoderError {
 }
 
 /// A client for continuous background reading of the RP2040 8-axis encoder states.
+#[derive(Debug)]
 pub struct EncoderClient {
     /// The current encoder counts across all eight axes.
     counts: Arc<RwLock<[i32; 8]>>,
@@ -30,7 +31,7 @@ pub struct EncoderClient {
 
 impl EncoderClient {
     /// Starts retrieving encoder positions from the target serial device at 115,200 baud rate.
-    pub fn spawn(port_name: &str) -> std::result::Result<Self, EncoderError> {
+    pub fn spawn(port_name: &str) -> Result<Self, EncoderError> {
         let mut port = serialport::new(port_name, 115_200)
             .timeout(Duration::from_millis(100))
             .open()

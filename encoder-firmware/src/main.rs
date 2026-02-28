@@ -4,6 +4,7 @@
 use defmt::info;
 use embassy_executor::{Executor, Spawner};
 use embassy_rp::gpio::{Input, Pull};
+use embassy_rp::pwm::{Config as PwmConfig, Pwm};
 use embassy_rp::multicore::{spawn_core1, Stack};
 use portable_atomic::{AtomicI32, Ordering};
 use rotary_encoder_embedded::{Direction, InitalizeMode, RotaryEncoder};
@@ -36,7 +37,14 @@ static ENCODER_COUNTS: [AtomicI32; MAX_ENCODERS] = [const { AtomicI32::new(0) };
 async fn main(spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
 
-    let (tx_pin, rx_pin, uart) = (p.PIN_0, p.PIN_1, p.UART0);
+    let mut pwm_config: PwmConfig = Default::default();
+    pwm_config.top = 20000;
+    // Dim the LED using PWM (1/40 proportion brightness)
+    let max_brightness = pwm_config.top / 40;
+    pwm_config.compare_b = 0;
+    let mut led_pwm = Pwm::new_output_b(p.PWM_SLICE4, p.PIN_25, pwm_config.clone());
+
+    let (tx_pin, rx_pin, uart) = (p.PIN_16, p.PIN_17, p.UART0);
 
     static TX_BUF: StaticCell<[u8; BUFFER_SIZE]> = StaticCell::new();
     let tx_buf = &mut TX_BUF.init([0; BUFFER_SIZE])[..];
@@ -95,7 +103,16 @@ async fn main(spawner: Spawner) {
     let mut sequence = 0u32;
 
     loop {
-        embassy_time::Timer::after_millis(10).await; // 100Hz
+        embassy_time::Timer::after_millis(10).await;
+
+        // Blink LED with 0.5Hz frequency (2 seconds period)
+        let cycle_tick = sequence % 200;
+        if cycle_tick < 100 {
+            pwm_config.compare_b = max_brightness;
+        } else {
+            pwm_config.compare_b = 0;
+        }
+        led_pwm.set_config(&pwm_config);
 
         let encoder_counts = ENCODER_COUNTS.each_ref().map(|c| c.load(Ordering::SeqCst));
         let sensor_data_packet = SensorDataPacket {
@@ -105,7 +122,7 @@ async fn main(spawner: Spawner) {
         let packet = Packet::SensorData(sensor_data_packet);
         let buf = serialize_packet(&packet);
 
-        if sequence % 10 == 0 { // 10Hz in console
+        if sequence % 10 == 0 {
             info!("TX Seq: {:?} Counts: {:?}", sequence, encoder_counts);
         }
 

@@ -38,7 +38,7 @@ pub fn serialize_packet(packet: &Packet) -> String<BUFFER_SIZE> {
     let checksum = compute_checksum(&payload);
 
     let mut buf: String<BUFFER_SIZE> = String::new();
-    let _ = write!(&mut buf, "${}*{:02X}\n", payload, checksum);
+    let _ = writeln!(&mut buf, "${}*{:02X}", payload, checksum);
     buf
 }
 

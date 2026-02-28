@@ -4,7 +4,7 @@ use std::time::Duration;
 
 // We use the same known USB port from the original firmwares UART e2e test target.
 // It may vary slightly on host machines, but this is the standard macOS MKS servo dummy target.
-const TARGET_PORT: &str = "/dev/tty.usbmodem84302";
+const TARGET_PORT: &str = "/tmp/ttyEncoder0";
 
 #[test]
 #[ignore = "Requires RP2040 hardware plugged in to the host machine"]

@@ -2,35 +2,18 @@ name: Hardware CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
-  environment: rpi4
-  env:
-    CARGO_TERM_COLOR: always
-    PICO_ENCODER_UART: ${{ vars.PICO_ENCODER_UART }}
-  build-uf2:
-    runs-on: self-hosted
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Build UF2 Firmware
-        run: make build-uf2
-
-      - name: Upload UF2 Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: encoder-firmware-uf2
-          path: encoder-firmware/target/thumbv6m-none-eabi/release/encoder-firmware.uf2
-
   hardware-test:
     runs-on: self-hosted
-    needs: build-uf2
-    
+    environment: rpi4
+    env:
+      CARGO_TERM_COLOR: always
+      PICO_ENCODER_UART: ${{ vars.PICO_ENCODER_UART }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -46,3 +29,20 @@ jobs:
 
       - name: Test Hardware
         run: make test-hardware
+
+  build-uf2:
+    runs-on: self-hosted
+    needs: hardware-test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build UF2 Firmware
+        run: make build-uf2
+
+      - name: Upload UF2 Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: encoder-firmware-uf2
+          path: encoder-firmware/target/thumbv6m-none-eabi/release/encoder-firmware.uf2

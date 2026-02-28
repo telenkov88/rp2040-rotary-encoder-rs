@@ -3,6 +3,7 @@
 //! Provides a real-time, thread-safe view into the most recent count of all 8 axes.
 
 use std::io::{BufRead, BufReader};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
@@ -25,8 +26,17 @@ pub struct EncoderClient {
     counts: Arc<RwLock<[i32; 8]>>,
     /// The current sequence number received from the device counter.
     sequence: Arc<RwLock<u32>>,
-    #[allow(dead_code)]
-    worker_handle: JoinHandle<()>,
+    exit_flag: Arc<AtomicBool>,
+    worker_handle: Option<JoinHandle<()>>,
+}
+
+impl Drop for EncoderClient {
+    fn drop(&mut self) {
+        self.exit_flag.store(true, Ordering::SeqCst);
+        if let Some(handle) = self.worker_handle.take() {
+            let _ = handle.join();
+        }
+    }
 }
 
 impl EncoderClient {
@@ -52,15 +62,21 @@ impl EncoderClient {
 
         let counts = Arc::new(RwLock::new([0; 8]));
         let sequence = Arc::new(RwLock::new(0));
+        let exit_flag = Arc::new(AtomicBool::new(false));
 
         let counts_clone = Arc::clone(&counts);
         let sequence_clone = Arc::clone(&sequence);
+        let exit_flag_clone = Arc::clone(&exit_flag);
 
         let worker_handle = thread::spawn(move || {
             let mut reader = BufReader::new(port);
             let mut line = String::new();
 
             loop {
+                if exit_flag_clone.load(Ordering::SeqCst) {
+                    break;
+                }
+
                 line.clear();
                 match reader.read_line(&mut line) {
                     Ok(bytes_read) if bytes_read > 0 => {
@@ -93,7 +109,8 @@ impl EncoderClient {
         Ok(Self {
             counts,
             sequence,
-            worker_handle,
+            exit_flag,
+            worker_handle: Some(worker_handle),
         })
     }
 
